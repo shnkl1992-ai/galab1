@@ -3,47 +3,55 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>قلاب 1 — اختبار الدائرة والتحكّم</title>
+<title>قلاب 1 — اختبار الدائرة + أرض 1..K + سحب لـ 6 بعد الأكل</title>
 <style>
   :root{--bg:#0b1020;--fg:#e6ecff;--green:#22c55e;--orange:#f59e0b}
   *{box-sizing:border-box}
   body{margin:0;background:#0b1020;color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
-  header{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px;border-bottom:1px solid #223}
-  h1{font-size:16px;margin:0 6px 0 0}
+  header{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #223}
+  h1{font-size:16px;margin:0}
   button{padding:8px 12px;border:1px solid #335;background:#182044;color:var(--fg);border-radius:10px}
-  .wrap{max-width:1100px;margin:12px auto;padding:0 10px}
+  select{padding:8px 10px;border:1px solid #335;background:#0f1a37;color:var(--fg);border-radius:10px}
+  .wrap{max-width:1200px;margin:12px auto;padding:0 12px}
   .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
-  .arena{position:relative;height:560px;border:1px solid #223;border-radius:16px;background:radial-gradient(circle at 50% 40%,#111a3a 0%,#0b1020 70%)}
-  .table{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:320px;height:320px;border-radius:999px;background:#0e1e3a;border:2px solid #2a355e;display:flex;align-items:center;justify-content:center;color:#9fb2ff}
-  .seat{position:absolute;width:150px;text-align:center}
+  .arena{position:relative;height:620px;border:1px solid #223;border-radius:16px;background:radial-gradient(circle at 50% 40%,#111a3a 0%,#0b1020 70%)}
+  .table{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;height:420px;border-radius:999px;background:#0e1e3a;border:2px solid #2a355e;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px;gap:6px}
+  .seat{position:absolute;width:160px;text-align:center}
   .name{font-size:13px;margin-bottom:6px}
   .name.green{color:var(--green)} .name.orange{color:var(--orange)}
-  .hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:58px}
-  .card{width:40px;height:58px;border-radius:8px;background:linear-gradient(180deg,#1f2547,#11162c);border:1px solid #3a4577;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .hand,.eat{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:58px}
+  .eat{min-height:40px;margin-top:6px}
+  .card{width:42px;height:60px;border-radius:8px;background:linear-gradient(180deg,#1f2547,#11162c);border:1px solid #3a4577;display:flex;align-items:center;justify-content:center;font-weight:700}
   .back{background:linear-gradient(135deg,#103060,#3b82f6)}
   .sel{outline:2px solid #60a5fa;outline-offset:2px}
   .side{border:1px solid #223;border-radius:16px;padding:10px}
-  .log{height:220px;overflow:auto;border-top:1px dashed #2a355e;margin-top:8px;padding-top:6px;font-size:13px;line-height:1.5}
+  .log{height:260px;overflow:auto;border-top:1px dashed #2a355e;margin-top:8px;padding-top:6px;font-size:13px;line-height:1.5}
   .pill{display:inline-block;background:#1a274a;border-radius:999px;padding:4px 8px;font-size:12px;margin-inline-start:6px}
 </style>
 </head>
 <body>
 <header>
-  <h1>قلاب 1 — اختبار</h1>
-  <button id="deal">توزيع</button>
-  <button id="show" disabled>إظهار يدي</button>
-  <button id="buy" disabled>أكل</button>
-  <button id="discard" disabled>قط/تمرير</button>
-  <button id="next" disabled>التالي</button>
+  <h1>قلاب 1 — اختبار موسّع</h1>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button id="deal">توزيع</button>
+    <button id="show" disabled>إظهار يدي</button>
+    <select id="rankSel" disabled></select>
+    <button id="buy" disabled>أكل</button>
+    <button id="discard" disabled>قط/تمرير</button>
+    <button id="next" disabled>التالي</button>
+  </div>
 </header>
 
 <div class="wrap">
   <div class="grid">
     <div class="arena" id="arena">
-      <div class="table"><div>الأرض: <span id="groundCount">0</span> ورقة</div></div>
+      <div class="table" id="groundBox"></div>
     </div>
     <div class="side">
-      <div>الدور: <b id="turnLabel">—</b> <span class="pill">الأرض <b id="groundList"></b></span></div>
+      <div>الدور: <b id="turnLabel">—</b>
+        <span class="pill">الأرض: <b id="groundList"></b></span>
+        <span class="pill">السحبة: <b id="stockLeft">—</b></span>
+      </div>
       <div class="log" id="log"></div>
     </div>
   </div>
@@ -55,24 +63,25 @@
   const TEAM = i => i % 2 === 0 ? "green" : "orange";
   const NAMES = ["A","B","C","D","E","F"];
   const RANKS = ["1","2","3","4","5","6","7","8","9","10","J","Q","K"];
-  const logEl = id("log");
-  const arena = id("arena");
+  const SCORING = new Set(["10","J","Q","K","1"]); // لاحقًا للحساب
 
-  let players = [];
-  let ground = [];
-  let turn = 0;
-  let shown = false;
-  let selected = null;
+  // عناصر
+  const arena = id("arena"), groundBox = id("groundBox");
+  const logEl = id("log"), rankSel = id("rankSel");
 
-  // Helpers
+  // حالة
+  let deck = [], stock = [], players = [], ground = [], turn = 0, shown = false, selIdx = null;
+
+  // أدوات
   function id(x){ return document.getElementById(x); }
   function log(msg){ const d=document.createElement("div"); d.textContent=msg; logEl.prepend(d); }
   function seatPos(i){
     const rect = arena.getBoundingClientRect();
-    const r = Math.min(rect.width, rect.height)/2 - 90;
+    // وسّعنا نصف القطر عشان تبعد المقاعد
+    const r = Math.min(rect.width, rect.height)/2 - 35;
     const cx = rect.width/2, cy = rect.height/2;
-    const ang = (Math.PI*2)*(i/PLAYERS) - Math.PI/2; // يدور دائرة
-    return { left: cx + r*Math.cos(ang) - 75, top: cy + r*Math.sin(ang) - 70 };
+    const ang = (Math.PI*2)*(i/PLAYERS) - Math.PI/2;
+    return { left: cx + r*Math.cos(ang) - 80, top: cy + r*Math.sin(ang) - 72 };
   }
   function cardEl(txt, faceUp, onClick){
     const d = document.createElement("div");
@@ -81,11 +90,24 @@
     if(onClick) d.onclick = onClick;
     return d;
   }
-  function render(){
-    // الأرض
-    id("groundCount").textContent = ground.length;
-    id("groundList").textContent = ground.map(c=>c).join(" ");
-    // امسح المقاعد وارسمها
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  function buildBigDeck(){
+    // نسخة خفيفة (4 نسخ لكل رقم) للتجربة السريعة — لاحقًا نرفعها للأرقام الكبيرة
+    const d=[];
+    for(const r of RANKS){ for(let i=0;i<4;i++) d.push(r); }
+    d.push(...Array(6).fill("🃟")); // شوية جواكر للتجربة
+    return shuffle(d);
+  }
+
+  function renderGround(){
+    groundBox.innerHTML = "";
+    ground.forEach(r => groundBox.appendChild(cardEl(r, true)));
+    id("groundList").textContent = ground.join(" ");
+  }
+
+  function renderSeats(){
+    // امسح المقاعد وارسم من جديد
     [...arena.querySelectorAll(".seat")].forEach(n=>n.remove());
     for(let i=0;i<PLAYERS;i++){
       const seat = document.createElement("div");
@@ -97,93 +119,140 @@
       nm.className = "name "+TEAM(i);
       nm.textContent = `لاعب ${NAMES[i]}${i===turn?" • دوره":""}`;
 
-      const hand = document.createElement("div");
-      hand.className = "hand";
+      const hand = document.createElement("div"); hand.className="hand";
+      const eat  = document.createElement("div"); eat.className="eat";
       const face = (i===turn && shown);
-      players[i].hand.forEach((c,idx)=>{
-        const elc = cardEl(c, face, ()=>{
+      players[i].hand.forEach((r,idx)=>{
+        const elc = cardEl(r, face, ()=>{
           if(i!==turn || !shown) return;
-          selected = idx; render();
+          selIdx = idx; renderSeats();
+          fillRankSel();
         });
-        if(i===turn && selected===idx) elc.classList.add("sel");
+        if(i===turn && selIdx===idx) elc.classList.add("sel");
         hand.appendChild(elc);
       });
+      players[i].eat.forEach(r=> eat.appendChild(cardEl(r,true)));
 
       seat.appendChild(nm);
       seat.appendChild(hand);
+      seat.appendChild(eat);
       arena.appendChild(seat);
     }
+  }
+
+  function renderAll(){
+    renderGround();
+    renderSeats();
     id("turnLabel").textContent = `لاعب ${NAMES[turn]}`;
+    id("stockLeft").textContent = stock.length;
     id("show").disabled = false;
-    id("buy").disabled  = !(shown && players[turn].hand.length>0);
-    id("discard").disabled = !(shown && players[turn].hand.length>0);
+    id("buy").disabled  = !(shown && players[turn].hand.length);
+    id("discard").disabled = !(shown && players[turn].hand.length);
     id("next").disabled = !shown;
   }
 
-  // افتراض: دك بسيط عشان الاختبار (ما نبي نعقّد)
-  function simpleDeck(){
-    const d=[];
-    for(const r of RANKS){ for(let i=0;i<2;i++) d.push(r); } // نسختين من كل رقم
-    for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
-    return d;
+  function fillRankSel(){
+    rankSel.innerHTML = "";
+    if(!(shown && players[turn])){ rankSel.disabled = true; return; }
+    const ranks = [...new Set(players[turn].hand)];
+    ranks.forEach(r=>{ const o=document.createElement("option"); o.value=r; o.textContent=r; rankSel.appendChild(o); });
+    rankSel.disabled = ranks.length===0;
+  }
+
+  function topUpToSix(pIdx){
+    while(players[pIdx].hand.length < 6 && stock.length){
+      players[pIdx].hand.push(stock.pop());
+    }
   }
 
   // أزرار
   id("deal").onclick = () => {
-    try{
-      const deck = simpleDeck();
-      players = Array.from({length:PLAYERS}, (_,i)=>({hand: deck.splice(0,5)}));
-      // لاعب أول ياخذ السادسة
-      players[0].hand.push(deck.shift());
-      ground = ["1","2","3","4","5","6","7"]; // أرض مبدئية باينة
-      turn = 0; shown = false; selected = null;
-      log("تم التوزيع. اضغط «إظهار يدي» ثم اختر كرت.");
-      render();
-    }catch(e){ log("خطأ: "+e.message); alert(e.message); }
+    deck = buildBigDeck();
+    // الأرض = 13 (1..K)
+    ground = [...RANKS]; // تُعرض كلها من البداية
+    // أبعد هذه الأوراق من الدك (لو كانت موجودة)
+    for(const r of RANKS){
+      const i = deck.indexOf(r);
+      if(i>-1) deck.splice(i,1);
+    }
+    // الباقي يصير ستوك
+    stock = deck;
+
+    // إعداد اللاعبين
+    players = Array.from({length:PLAYERS}, ()=>({hand:[], eat:[]}));
+    // توزيع 5 لكل لاعب + لاعب عشوائي ياخذ السادسة
+    for(let r=0;r<5;r++){ for(let p=0;p<PLAYERS;p++){ if(stock.length) players[p].hand.push(stock.pop()); } }
+    const starter = Math.floor(Math.random()*PLAYERS);
+    if(stock.length) players[starter].hand.push(stock.pop());
+    turn = starter; shown = false; selIdx = null;
+
+    log(`تم التوزيع — البادئ: لاعب ${NAMES[starter]}. الأرض: 1..K ظاهرة.`);
+    renderAll(); fillRankSel();
   };
 
-  id("show").onclick = () => { shown = !shown; if(!shown) selected=null; render(); };
+  id("show").onclick = () => {
+    shown = !shown; if(!shown) selIdx=null;
+    renderAll(); fillRankSel();
+  };
 
+  // الأكل: يبحث أولًا في الأرض، ثم في أكل اللاعبين
   id("buy").onclick = () => {
-    try{
-      if(!shown) return alert("اظهر يدك أول");
-      const idx = (selected ?? 0);
-      const card = players[turn].hand[idx];
-      const gIdx = ground.findIndex(g => g===card);
-      if(gIdx>-1){
-        ground.splice(gIdx,1); // اخذ من الأرض
-        log(`لاعب ${NAMES[turn]} أكل ${card} من الأرض`);
-      }else{
-        log(`ما لقى ${card} على الأرض — (اختبار: ما ندوّر على أكل اللاعبين هنا)`);
+    if(!shown) return alert("اظهر يدك أول");
+    const me = players[turn];
+    const pick = selIdx ?? 0;
+    const rSel = me.hand[pick];
+    if(!rSel) return;
+
+    let takenFrom = null;
+    // 1) الأرض
+    let gIdx = ground.findIndex(x=>x===rSel);
+    if(gIdx>-1){ ground.splice(gIdx,1); takenFrom = "الأرض"; }
+    else{
+      // 2) أكل اللاعبين
+      for(let i=0;i<players.length;i++){
+        const j = players[i].eat.findIndex(x=>x===rSel);
+        if(j>-1){ players[i].eat.splice(j,1); takenFrom = `أكل لاعب ${NAMES[i]}`; break; }
       }
-      players[turn].hand.splice(idx,1);
-      selected = null;
-      render();
-    }catch(e){ log("خطأ: "+e.message); }
+    }
+    if(!takenFrom){ return alert(`ما فيه ${rSel} لا على الأرض ولا في أكل اللاعبين`); }
+
+    // أضف ورقتي + المُلتقطة إلى أكلي
+    const my = me.hand.splice(pick,1)[0];
+    me.eat.push(my, rSel);
+    log(`لاعب ${NAMES[turn]} أكل ${rSel} من ${takenFrom}.`);
+    // بعد الأكل: الديلر يكمّل يد اللاعب إلى 6
+    topUpToSix(turn);
+    shown = false; selIdx = null;
+    renderAll(); fillRankSel();
   };
 
+  // القط/التمرير: يرمي الكرت المختار للأرض
   id("discard").onclick = () => {
-    try{
-      if(!shown) return alert("اظهر يدك أول");
-      const idx = (selected ?? 0);
-      const card = players[turn].hand.splice(idx,1)[0];
-      ground.push(card);
-      log(`لاعب ${NAMES[turn]} قط ${card}`);
-      selected = null;
-      render();
-    }catch(e){ log("خطأ: "+e.message); }
+    if(!shown) return alert("اظهر يدك أول");
+    const me = players[turn];
+    const pick = selIdx ?? 0;
+    const rSel = me.hand.splice(pick,1)[0];
+    if(!rSel) return;
+    // شرط “ما يكون موجود بالأرض ولا الأكل” نضيفه لاحقًا — الآن نخليها مفتوحة للتجربة
+    ground.push(rSel);
+    log(`لاعب ${NAMES[turn]} قط ${rSel} إلى الأرض.`);
+    shown = false; selIdx = null;
+    renderAll(); fillRankSel();
   };
 
   id("next").onclick = () => {
-    shown = false; selected = null;
+    shown = false; selIdx = null;
     turn = (turn+1)%PLAYERS;
+    // بداية الدور الجديد: كمّل يده لستة (لو تبي نفس منطقكم أثناء السحبة)
+    topUpToSix(turn);
     log(`الدور → لاعب ${NAMES[turn]}`);
-    render();
+    renderAll(); fillRankSel();
   };
 
-  // رسم أولي فاضي
-  players = Array.from({length:PLAYERS}, ()=>({hand:[]}));
-  render();
+  // بداية فارغة
+  players = Array.from({length:PLAYERS}, ()=>({hand:[], eat:[]})); ground=[]; stock=[];
+  renderAll();
+
 })();
 </script>
 </body>
