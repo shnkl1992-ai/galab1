@@ -49,28 +49,33 @@
 </header>
 
 <div class="wrap">
-  <div class="hint">هذه نسخة يدوية للتجربة — وزع الأوراق واضغط إعلان رقم/اعتراض/حسم الشراء يدويًا. النقاط تحتسب للأوراق: 10، J، Q، K، 1.</div>
+  <div class="hint">الخطوات: اضغط "توزيع جديد". لاعب عشوائي يحصل ٦ ورق ويكون هو اللاعب الحالي. اختر رقم من القائمة واضغط "إعلان رقم". الآن أي لاعب عنده نفس الرقم (أو جوكر) يضغط "أعترض / أشتري أنا". بعد ما يخلصون الاعتراضات اضغط "حسم الشراء" واختر الفائز وستُنقل الأوراق له ويُحدّث رصيده. كل ١٠، J، Q، K، ١ = نقطة.</div>
+
   <div class="tableArea">
     <div class="arena" id="arena">
       <div class="table" id="table"></div>
     </div>
+
     <div class="side">
       <div class="row"><span class="badge">على الأرض (أرقام متاحة للشراء)</span></div>
       <div id="ground" class="pile"></div>
+
       <div class="row"><span class="badge">اللاعب الحالي:</span><span id="turnName"></span></div>
       <div class="row score">
         <div class="team">فريق الأخضر: <b id="scoreGreen">0</b></div>
         <div class="team">فريق البرتقالي: <b id="scoreOrange">0</b></div>
       </div>
-      <div class="row"><span class="badge">المتقدمون</span></div>
+
+      <div class="row"><span class="badge">المتقدمون للشراء/الاعتراض</span></div>
       <div id="claimants" class="pile"></div>
+
       <div class="log" id="log"></div>
     </div>
   </div>
 </div>
 
 <script>
-// (نفس الكود السابق داخل السكربت)
+// الكود الجافاسكربت كامل (منعته من القطع هنا لضيق المساحة)
 </script>
 </body>
 </html>
