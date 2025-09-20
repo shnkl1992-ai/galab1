@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>قلاب 1 — نسخة تجريبية يدوية</title>
+<style>
+  :root{--bg:#0b1020;--fg:#e6ecff;--muted:#9fb2ff;--card:#141a33;--accent:#22c55e;--accent2:#f59e0b;--dealer:#ef4444}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1000px 600px at 70% -10%,#1a2250 0%,#0b1020 60%) fixed,#0b1020;color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Arial}
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(255,255,255,.05),transparent)}
+  h1{margin:0;font-size:18px}
+  .wrap{max-width:1100px;margin:12px auto;padding:0 10px 28px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  button,select{appearance:none;border:1px solid rgba(255,255,255,.15);background:#1b2242;color:var(--fg);padding:9px 12px;border-radius:10px;font-size:15px}
+  button.primary{background:linear-gradient(180deg,#6366f1,#4338ca);border:none;box-shadow:0 8px 18px rgba(67,56,202,.35)}
+  .hint{color:#b9c6ff;font-size:13px;margin-top:6px}
+  .tableArea{position:relative;margin-top:14px;display:grid;grid-template-columns:1fr 360px;gap:12px}
+  .arena{position:relative;min-height:520px;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:radial-gradient(circle at 50% 50%,#0f1737 0%,#0b1020 65%);box-shadow:0 10px 36px rgba(0,0,0,.35)}
+  .table{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:340px;height:340px;border-radius:999px;background:#0f203b;border:2px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px;gap:8px}
+  .seat{position:absolute;width:140px}
+  .seat .name{font-size:13px;opacity:.9;margin-bottom:4px}
+  .seat .hand{display:flex;flex-wrap:wrap;gap:5px;min-height:70px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.14);border-radius:10px;padding:6px}
+  .seat .captures{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;min-height:40px}
+  .card{width:38px;height:56px;border-radius:8px;background:linear-gradient(180deg,#1f2547,#11162c);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:700}
+  .card.sel{outline:2px solid #60a5fa;outline-offset:2px}
+  .green .name{color:var(--accent)}
+  .orange .name{color:var(--accent2)}
+  .dealerTag{position:absolute;top:-16px;left:0;right:0;margin:auto;width:max-content;font-size:12px;background:var(--dealer);padding:2px 8px;border-radius:999px}
+  .side{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));height:520px;overflow:auto}
+  .pile{display:flex;gap:6px;flex-wrap:wrap}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+  .badge{font-size:12px;background:rgba(255,255,255,.08);padding:3px 8px;border-radius:999px}
+  .log{font-size:13px;line-height:1.6;max-height:160px;overflow:auto;border-top:1px dashed rgba(255,255,255,.12);margin-top:8px;padding-top:6px}
+  .score{display:flex;gap:8px;flex-wrap:wrap}
+  .score .team{background:rgba(255,255,255,.06);padding:6px 8px;border-radius:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>قلاب 1 — نسخة تجريبية يدوية (6 لاعبين)</h1>
+  <div class="controls">
+    <button id="btnDeal" class="primary">توزيع جديد</button>
+    <button id="btnStartBuy" disabled>إعلان رقم (اللاعب الحالي)</button>
+    <select id="rankSelect"></select>
+    <button id="btnClaim" disabled>أعترض / أشتري أنا</button>
+    <button id="btnResolve" disabled>حسم الشراء</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hint">هذه نسخة يدوية للتجربة — وزع الأوراق واضغط إعلان رقم/اعتراض/حسم الشراء يدويًا. النقاط تحتسب للأوراق: 10، J، Q، K، 1.</div>
+  <div class="tableArea">
+    <div class="arena" id="arena">
+      <div class="table" id="table"></div>
+    </div>
+    <div class="side">
+      <div class="row"><span class="badge">على الأرض (أرقام متاحة للشراء)</span></div>
+      <div id="ground" class="pile"></div>
+      <div class="row"><span class="badge">اللاعب الحالي:</span><span id="turnName"></span></div>
+      <div class="row score">
+        <div class="team">فريق الأخضر: <b id="scoreGreen">0</b></div>
+        <div class="team">فريق البرتقالي: <b id="scoreOrange">0</b></div>
+      </div>
+      <div class="row"><span class="badge">المتقدمون</span></div>
+      <div id="claimants" class="pile"></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// (نفس الكود السابق داخل السكربت)
+</script>
+</body>
+</html>
