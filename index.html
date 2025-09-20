@@ -3,343 +3,187 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>قلاب 1 — نسخة مبسطة (6 لاعبين)</title>
+<title>قلاب 1 — اختبار الدائرة والتحكّم</title>
 <style>
-  :root{--bg:#0b1020;--fg:#e6ecff;--muted:#9fb2ff;--green:#22c55e;--orange:#f59e0b;--dealer:#ef4444}
+  :root{--bg:#0b1020;--fg:#e6ecff;--green:#22c55e;--orange:#f59e0b}
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1100px 700px at 70% -10%,#1a2250 0%,#0b1020 60%),#0b1020;color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Arial}
-  header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(255,255,255,.06),transparent)}
-  h1{margin:0;font-size:18px}
-  .controls{display:flex;gap:8px;flex-wrap:wrap}
-  button,select{appearance:none;border:1px solid rgba(255,255,255,.15);background:#1b2242;color:var(--fg);padding:9px 12px;border-radius:10px;font-size:15px}
-  button.primary{background:linear-gradient(180deg,#6366f1,#4338ca);border:none;box-shadow:0 8px 18px rgba(67,56,202,.35)}
-  .wrap{max-width:1100px;margin:12px auto;padding:0 10px 28px}
-  .layout{display:grid;grid-template-columns:1fr 360px;gap:12px}
-  .arena{position:relative;min-height:560px;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:radial-gradient(circle at 50% 50%,#0f1737 0%,#0b1020 65%);box-shadow:0 10px 36px rgba(0,0,0,.35)}
-  .table{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:360px;height:360px;border-radius:999px;background:#0f203b;border:2px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px;gap:6px;z-index:1}
-  .seat{position:absolute;width:150px;text-align:center;z-index:2}
-  .name{font-size:13px;opacity:.95;margin-bottom:6px}
+  body{margin:0;background:#0b1020;color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
+  header{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px;border-bottom:1px solid #223}
+  h1{font-size:16px;margin:0 6px 0 0}
+  button{padding:8px 12px;border:1px solid #335;background:#182044;color:var(--fg);border-radius:10px}
+  .wrap{max-width:1100px;margin:12px auto;padding:0 10px}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
+  .arena{position:relative;height:560px;border:1px solid #223;border-radius:16px;background:radial-gradient(circle at 50% 40%,#111a3a 0%,#0b1020 70%)}
+  .table{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:320px;height:320px;border-radius:999px;background:#0e1e3a;border:2px solid #2a355e;display:flex;align-items:center;justify-content:center;color:#9fb2ff}
+  .seat{position:absolute;width:150px;text-align:center}
+  .name{font-size:13px;margin-bottom:6px}
   .name.green{color:var(--green)} .name.orange{color:var(--orange)}
-  .dealerTag{display:inline-block;margin-top:4px;background:var(--dealer);padding:2px 6px;border-radius:999px;font-size:11px}
-  .pile{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
-  .hand{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;min-height:62px}
-  .eat{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:6px;min-height:40px}
-  .card{width:40px;height:58px;border-radius:8px;background:linear-gradient(180deg,#1f2547,#11162c);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:700}
-  .back{background:linear-gradient(135deg,#102040,#3b82f6);border:1px solid rgba(255,255,255,.2)}
+  .hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:58px}
+  .card{width:40px;height:58px;border-radius:8px;background:linear-gradient(180deg,#1f2547,#11162c);border:1px solid #3a4577;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .back{background:linear-gradient(135deg,#103060,#3b82f6)}
   .sel{outline:2px solid #60a5fa;outline-offset:2px}
-  .panel{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02))}
-  .side{height:560px;overflow:auto}
-  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
-  .badge{font-size:12px;background:rgba(255,255,255,.08);padding:3px 8px;border-radius:999px}
-  .log{font-size:13px;line-height:1.6;max-height:200px;overflow:auto;border-top:1px dashed rgba(255,255,255,.12);margin-top:8px;padding-top:6px}
-  .scoreBox{display:flex;gap:8px;flex-wrap:wrap}
-  .team{background:rgba(255,255,255,.06);padding:6px 8px;border-radius:10px}
-  .pill{display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:12px}
-  .timer{display:inline-block;min-width:28px;text-align:center;background:#1f2937;border-radius:999px;padding:2px 8px;font-weight:700}
+  .side{border:1px solid #223;border-radius:16px;padding:10px}
+  .log{height:220px;overflow:auto;border-top:1px dashed #2a355e;margin-top:8px;padding-top:6px;font-size:13px;line-height:1.5}
+  .pill{display:inline-block;background:#1a274a;border-radius:999px;padding:4px 8px;font-size:12px;margin-inline-start:6px}
 </style>
 </head>
 <body>
 <header>
-  <h1>قلاب 1 — نسخة مبسطة (6 لاعبين)</h1>
-  <div class="controls">
-    <button id="btnDeal" class="primary">بداية/توزيع</button>
-    <button id="btnShow" disabled>إظهار يدي</button>
-    <button id="btnBuy" disabled>أكل</button>
-    <button id="btnPass" disabled>تمرير (مع قطّ)</button>
-    <button id="btnNext" disabled>تمرير الدور</button>
-    <select id="rankSelect" disabled></select>
-    <button id="btnScore">حساب النقاط</button>
-  </div>
+  <h1>قلاب 1 — اختبار</h1>
+  <button id="deal">توزيع</button>
+  <button id="show" disabled>إظهار يدي</button>
+  <button id="buy" disabled>أكل</button>
+  <button id="discard" disabled>قط/تمرير</button>
+  <button id="next" disabled>التالي</button>
 </header>
 
 <div class="wrap">
-  <div class="layout">
-    <div class="arena panel" id="arena">
-      <div class="table panel">
-        <div class="row">
-          <span class="badge">الأرض (1..K)</span>
-          <span class="pill">السحبة المتبقية: <b id="stockLeft">—</b></span>
-          <span class="pill">المرحلة: <b id="phaseLabel">—</b></span>
-          <span class="pill">الوقت: <b class="timer" id="timer">—</b></span>
-        </div>
-        <div id="ground" class="pile"></div>
-      </div>
+  <div class="grid">
+    <div class="arena" id="arena">
+      <div class="table"><div>الأرض: <span id="groundCount">0</span> ورقة</div></div>
     </div>
-
-    <div class="panel side">
-      <div class="row scoreBox">
-        <div class="team">فريق الأخضر: <b id="scoreGreen">0</b></div>
-        <div class="team">فريق البرتقالي: <b id="scoreOrange">0</b></div>
-        <div class="team">الدور: <b id="turnLabel">—</b></div>
-      </div>
-      <div class="row"><span class="badge">ملاحظات اللعب</span></div>
+    <div class="side">
+      <div>الدور: <b id="turnLabel">—</b> <span class="pill">الأرض <b id="groundList"></b></span></div>
       <div class="log" id="log"></div>
-      <div id="winner" class="row" style="display:none"><span class="badge">النتيجة النهائية:</span> <b id="winnerText"></b></div>
     </div>
   </div>
 </div>
 
 <script>
-(()=>{
-  const PLAYERS=6, TEAM=i=>i%2===0?'green':'orange', NAMES=['A','B','C','D','E','F'];
-  const RANKS=['1','2','3','4','5','6','7','8','9','10','J','Q','K'];
-  const COPIES_PER_RANK=48, JOKERS_COUNT=35;
-  const SCORING=new Set(['10','J','Q','K','1']);
+(() => {
+  const PLAYERS = 6;
+  const TEAM = i => i % 2 === 0 ? "green" : "orange";
+  const NAMES = ["A","B","C","D","E","F"];
+  const RANKS = ["1","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const logEl = id("log");
+  const arena = id("arena");
 
-  let deck=[], stock=[], players=[], ground=[], dealer=0, turn=0;
-  let shown=false, selected=null, phase='normal';
-  let endgameUnlocked=false;   // يُفعَّل عند أول لاعب معه 3 كروت يُقابل بالدور بعد نفاد السحبة
-  let timerId=null, timeLeft=10;
+  let players = [];
+  let ground = [];
+  let turn = 0;
+  let shown = false;
+  let selected = null;
 
-  const el=id=>document.getElementById(id);
-  const log=m=>{const d=document.createElement('div'); d.textContent=m; el('log').prepend(d);};
+  // Helpers
+  function id(x){ return document.getElementById(x); }
+  function log(msg){ const d=document.createElement("div"); d.textContent=msg; logEl.prepend(d); }
+  function seatPos(i){
+    const rect = arena.getBoundingClientRect();
+    const r = Math.min(rect.width, rect.height)/2 - 90;
+    const cx = rect.width/2, cy = rect.height/2;
+    const ang = (Math.PI*2)*(i/PLAYERS) - Math.PI/2; // يدور دائرة
+    return { left: cx + r*Math.cos(ang) - 75, top: cy + r*Math.sin(ang) - 70 };
+  }
+  function cardEl(txt, faceUp, onClick){
+    const d = document.createElement("div");
+    d.className = "card " + (faceUp ? "" : "back");
+    d.textContent = faceUp ? txt : "";
+    if(onClick) d.onclick = onClick;
+    return d;
+  }
+  function render(){
+    // الأرض
+    id("groundCount").textContent = ground.length;
+    id("groundList").textContent = ground.map(c=>c).join(" ");
+    // امسح المقاعد وارسمها
+    [...arena.querySelectorAll(".seat")].forEach(n=>n.remove());
+    for(let i=0;i<PLAYERS;i++){
+      const seat = document.createElement("div");
+      seat.className = "seat";
+      const p = seatPos(i);
+      seat.style.left = p.left+"px"; seat.style.top = p.top+"px";
 
-  function buildBigDeck(){
+      const nm = document.createElement("div");
+      nm.className = "name "+TEAM(i);
+      nm.textContent = `لاعب ${NAMES[i]}${i===turn?" • دوره":""}`;
+
+      const hand = document.createElement("div");
+      hand.className = "hand";
+      const face = (i===turn && shown);
+      players[i].hand.forEach((c,idx)=>{
+        const elc = cardEl(c, face, ()=>{
+          if(i!==turn || !shown) return;
+          selected = idx; render();
+        });
+        if(i===turn && selected===idx) elc.classList.add("sel");
+        hand.appendChild(elc);
+      });
+
+      seat.appendChild(nm);
+      seat.appendChild(hand);
+      arena.appendChild(seat);
+    }
+    id("turnLabel").textContent = `لاعب ${NAMES[turn]}`;
+    id("show").disabled = false;
+    id("buy").disabled  = !(shown && players[turn].hand.length>0);
+    id("discard").disabled = !(shown && players[turn].hand.length>0);
+    id("next").disabled = !shown;
+  }
+
+  // افتراض: دك بسيط عشان الاختبار (ما نبي نعقّد)
+  function simpleDeck(){
     const d=[];
-    for(const r of RANKS){ for(let i=0;i<COPIES_PER_RANK;i++){ d.push({r,id:`${r}-${i}-${Math.random().toString(36).slice(2,7)}`}); } }
-    for(let j=0;j<JOKERS_COUNT;j++){ d.push({r:'🃟',id:`J-${j}-${Math.random().toString(36).slice(2,7)}`}); }
+    for(const r of RANKS){ for(let i=0;i<2;i++) d.push(r); } // نسختين من كل رقم
     for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
     return d;
   }
-  function pickGroundAllRanks(){
-    const g=[], seen=new Set();
-    for(const c of deck){
-      if(c.r!=='🃟' && !seen.has(c.r)){ g.push(c); seen.add(c.r); }
-      if(seen.size===RANKS.length) break;
-    }
-    deck=deck.filter(c=>!g.includes(c));
-    return g;
-  }
-  function topUpToSix(pIdx){ while(players[pIdx].hand.length<6 && stock.length) players[pIdx].hand.push(stock.pop()); }
 
-  function deal(){
-    deck=buildBigDeck();
-    players=Array.from({length:PLAYERS},(_,i)=>({idx:i,name:`لاعب ${NAMES[i]}`,team:TEAM(i),hand:[],eat:[]}));
-    dealer=Math.floor(Math.random()*PLAYERS);
-    ground=pickGroundAllRanks();
-    stock=deck; deck=[];
-    const starter=Math.floor(Math.random()*PLAYERS);
-    for(let r=0;r<5;r++){ for(let p=0;p<PLAYERS;p++){ if(stock.length) players[p].hand.push(stock.pop()); } }
-    if(stock.length) players[starter].hand.push(stock.pop());
-    turn=starter; shown=false; selected=null; phase='normal'; endgameUnlocked=false;
-    el('winner').style.display='none'; el('winnerText').textContent='';
-    renderAll(); fillRankSelect();
-    enable({deal:false,show:true,buy:false,pass:false,next:false});
-    log(`الديلر: ${players[dealer].name} — البادئ: ${players[starter].name}`);
-    startTimer();
-  }
+  // أزرار
+  id("deal").onclick = () => {
+    try{
+      const deck = simpleDeck();
+      players = Array.from({length:PLAYERS}, (_,i)=>({hand: deck.splice(0,5)}));
+      // لاعب أول ياخذ السادسة
+      players[0].hand.push(deck.shift());
+      ground = ["1","2","3","4","5","6","7"]; // أرض مبدئية باينة
+      turn = 0; shown = false; selected = null;
+      log("تم التوزيع. اضغط «إظهار يدي» ثم اختر كرت.");
+      render();
+    }catch(e){ log("خطأ: "+e.message); alert(e.message); }
+  };
 
-  function enable({deal,show,buy,pass,next}){
-    el('btnDeal').disabled=!deal; el('btnShow').disabled=!show; el('btnBuy').disabled=!buy;
-    el('btnPass').disabled=!pass; el('btnNext').disabled=!next;
-    el('rankSelect').disabled=!(buy||pass);
-  }
+  id("show").onclick = () => { shown = !shown; if(!shown) selected=null; render(); };
 
-  function seatPos(i){
-    const a=el('arena'), rect=a.getBoundingClientRect();
-    const r=Math.min(rect.width,rect.height)/2-90;
-    const cx=rect.width/2, cy=rect.height/2;
-    const ang=(Math.PI*2)*(i/PLAYERS)-Math.PI/2;
-    return {left: cx+r*Math.cos(ang)-75, top: cy+r*Math.sin(ang)-70};
-  }
-
-  function cardEl(c,faceUp,onClick){
-    const d=document.createElement('div'); d.className='card '+(faceUp?'':'back');
-    d.textContent=faceUp?(c.r==='1'?'A':c.r):''; if(onClick) d.addEventListener('click',onClick); return d;
-  }
-
-  function renderAll(){
-    el('ground').innerHTML=''; ground.forEach(c=>el('ground').appendChild(cardEl(c,true)));
-    el('stockLeft').textContent=stock.length; el('phaseLabel').textContent=(phase==='normal'?'عادي':'النهاية');
-    const arena=el('arena'); Array.from(arena.querySelectorAll('.seat')).forEach(e=>e.remove());
-    for(let i=0;i<PLAYERS;i++){
-      const seat=document.createElement('div'); seat.className='seat'; const p=seatPos(i); seat.style.left=p.left+'px'; seat.style.top=p.top+'px';
-      const nm=document.createElement('div'); nm.className='name '+players[i].team;
-      nm.textContent=players[i].name+(i===turn?' • دوره':''); if(i===dealer){const d=document.createElement('div'); d.className='dealerTag'; d.textContent='DEALER'; seat.appendChild(d);}
-      const hand=document.createElement('div'); hand.className='hand'; const face=(i===turn&&shown);
-      players[i].hand.forEach((c,idx)=>{ const elc=cardEl(c,face,()=>selectCard(i,idx)); if(selected&&selected.pIdx===i&&selected.cIdx===idx) elc.classList.add('sel'); hand.appendChild(elc); });
-      const eat=document.createElement('div'); eat.className='eat'; players[i].eat.forEach(c=>eat.appendChild(cardEl(c,true)));
-      seat.appendChild(nm); seat.appendChild(hand); seat.appendChild(eat); arena.appendChild(seat);
-    }
-    // live scores (إرشادية فقط؛ الحسم النهائي لاحقاً)
-    let g=0,o=0; for(const p of players){ const pts=p.eat.filter(x=>SCORING.has(x.r)).length; if(p.team==='green') g+=pts; else o+=pts; }
-    el('scoreGreen').textContent=g; el('scoreOrange').textContent=o;
-    el('turnLabel').textContent=players[turn].name+(players[turn].team==='green'?' (الأخضر)':' (البرتقالي)');
-  }
-
-  function selectCard(pIdx,cIdx){ if(pIdx!==turn||!shown) return; selected={pIdx,cIdx}; renderAll(); enable({deal:false,show:true,buy:phase==='normal',pass:true,next:true}); fillRankSelect(); }
-  function fillRankSelect(){
-    const s=el('rankSelect'); s.innerHTML='';
-    if(!(shown && players[turn])) return;
-    const ranks=[...new Set(players[turn].hand.map(c=>c.r))];
-    ranks.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=(r==='1'?'A':r); s.appendChild(o); });
-  }
-
-  function ensureTurnTopUp(){
-    if(phase==='normal' && stock.length>0) {
-      while(players[turn].hand.length<6 && stock.length) players[turn].hand.push(stock.pop());
-      if(stock.length===0){ // انتهت السحبة -> دخول مرحلة النهاية
-        phase='end';
-        endgameUnlocked=false; // تتفعل عند أول لاعب 3 كروت يُقابل
-        log('انتهت السحبة — دخلنا مرحلة النهاية (كل لاعب يرمي كرت)');
-      }
-    }
-    renderAll();
-  }
-
-  function showMyHand(){
-    shown=!shown; if(!shown) selected=null;
-    ensureTurnTopUp();
-    enable({deal:false,show:true,buy:(shown&&phase==='normal'),pass:shown,next:shown});
-    fillRankSelect();
-  }
-
-  function findInGroundOrEats(rank){
-    let idx=ground.findIndex(c=>c.r===rank);
-    if(idx>-1) return {where:'ground',idx};
-    for(let i=0;i<players.length;i++){
-      const j=players[i].eat.findIndex(c=>c.r===rank);
-      if(j>-1) return {where:'eat',idx:j,pIdx:i};
-    }
-    return null;
-  }
-
-  function buy(){
-    if(phase!=='normal'){ alert('الأكل مسموح في اللعب العادي فقط'); return; }
-    if(!shown){ alert('إظهار يدك أول'); return; }
-    const rSel=selected ? players[turn].hand[selected.cIdx].r : el('rankSelect').value;
-    if(!rSel){ alert('اختر ورقة من يدك'); return; }
-    let targetRank=rSel;
-    if(rSel==='🃟'){ // جوكر يأكل أول رقم متاح
-      let found=null; for(const rk of RANKS){ const f=findInGroundOrEats(rk); if(f){found={rk,f}; break;} }
-      if(!found){ alert('لا يوجد أي هدف للأكل حالياً'); return; }
-      targetRank=found.rk;
-    }
-    const spot=findInGroundOrEats(targetRank);
-    if(!spot){ alert('ما فيه نفس الرقم لا في الأرض ولا في أكل اللاعبين'); return; }
-    const hIdx=players[turn].hand.findIndex(c=>c.r===rSel);
-    if(hIdx===-1){ alert('هذه الورقة ليست في يدك'); return; }
-    const my=players[turn].hand.splice(hIdx,1)[0];
-    const taken = (spot.where==='ground') ? ground.splice(spot.idx,1)[0] : players[spot.pIdx].eat.splice(spot.idx,1)[0];
-    players[turn].eat.push(my,taken);
-    log(`${players[turn].name} أكل ${targetRank}${rSel==='🃟'?' (جوكر)':''}`);
-    selected=null; shown=false; nextTurn();
-  }
-
-  function passWithDiscard(){
-    if(!shown){ alert('إظهار يدك أول'); return; }
-    const rSel=selected ? players[turn].hand[selected.cIdx].r : el('rankSelect').value;
-    if(!rSel){ alert('اختر كرت'); return; }
-    if(phase==='normal'){
-      // قبل النهاية: يمنع القطّ إذا نفس الرقم موجود بالأرض/الأكل
-      if(rSel!=='🃟' && (ground.some(c=>c.r===rSel) || players.some(p=>p.eat.some(c=>c.r===rSel)))){
-        alert('لا يسمح بالقطّ إذا كان نفس الرقم موجود بالأرض أو في أكل اللاعبين');
-        return;
-      }
-    }
-    // في النهاية: أي كرت مسموح
-    const i=players[turn].hand.findIndex(c=>c.r===rSel);
-    const card=players[turn].hand.splice(i,1)[0];
-    ground.push(card);
-    log(`${players[turn].name} قطّ ${rSel}${phase==='end'?' (مرحلة النهاية)':''}`);
-    selected=null; shown=false; nextTurn();
-  }
-
-  function allHandsEmpty(){ return players.every(p=>p.hand.length===0); }
-
-  function nextTurn(){
-    // انتقال الدور
-    turn=(turn+1)%PLAYERS;
-
-    // قواعد مرحلة النهاية:
-    if(phase==='end'){
-      // تفعيل قاعدة "أول لاعب 3 كروت يبدأ"
-      if(!endgameUnlocked){
-        if(players[turn].hand.length===3){ endgameUnlocked=true; }
-        else { // تخطي حتى نصل لأول 3
-          renderAll(); startTimer(); return nextTurn();
-        }
+  id("buy").onclick = () => {
+    try{
+      if(!shown) return alert("اظهر يدك أول");
+      const idx = (selected ?? 0);
+      const card = players[turn].hand[idx];
+      const gIdx = ground.findIndex(g => g===card);
+      if(gIdx>-1){
+        ground.splice(gIdx,1); // اخذ من الأرض
+        log(`لاعب ${NAMES[turn]} أكل ${card} من الأرض`);
       }else{
-        // بعد التفعيل: يلعب الجميع طبيعي (حتى أصحاب 3)
+        log(`ما لقى ${card} على الأرض — (اختبار: ما ندوّر على أكل اللاعبين هنا)`);
       }
-      // إذا الكل خلص → نحسب
-      if(allHandsEmpty()){ finalScore(); enable({deal:true,show:false,buy:false,pass:false,next:false}); stopTimer(); return; }
-    }
+      players[turn].hand.splice(idx,1);
+      selected = null;
+      render();
+    }catch(e){ log("خطأ: "+e.message); }
+  };
 
-    ensureTurnTopUp();
-    enable({deal:false,show:true,buy:false,pass:false,next:false});
-    startTimer();
-  }
+  id("discard").onclick = () => {
+    try{
+      if(!shown) return alert("اظهر يدك أول");
+      const idx = (selected ?? 0);
+      const card = players[turn].hand.splice(idx,1)[0];
+      ground.push(card);
+      log(`لاعب ${NAMES[turn]} قط ${card}`);
+      selected = null;
+      render();
+    }catch(e){ log("خطأ: "+e.message); }
+  };
 
-  /* ======= المؤقت (10 ثواني) ======= */
-  function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } el('timer').textContent='—'; }
-  function startTimer(){
-    stopTimer();
-    timeLeft=10; el('timer').textContent=timeLeft;
-    timerId=setInterval(()=>{
-      timeLeft--; el('timer').textContent=timeLeft;
-      if(timeLeft<=0){ stopTimer(); autoPlay(); }
-    },1000);
-  }
-  function autoPlay(){
-    // لو ما لعب خلال 10 ثواني:
-    if(phase==='normal'){
-      // نحاول أكل تلقائي (لو ممكن)، وإلا قطّ قانوني، وإلا تمرير
-      const me=players[turn];
-      // محاولة أكل
-      let did=false;
-      for(let i=0;i<me.hand.length;i++){
-        const r=me.hand[i].r==='🃟' ? (RANKS.find(rk=>findInGroundOrEats(rk))||null) : me.hand[i].r;
-        if(!r) continue;
-        const spot = findInGroundOrEats(r);
-        if(spot){
-          const my=me.hand.splice(i,1)[0];
-          const taken=(spot.where==='ground')?ground.splice(spot.idx,1)[0]:players[spot.pIdx].eat.splice(spot.idx,1)[0];
-          me.eat.push(my,taken);
-          log(`${me.name} (أوتو) أكل ${r}`);
-          did=true; break;
-        }
-      }
-      if(!did){
-        // قطّ قانوني
-        const idx=me.hand.findIndex(c=> c.r==='🃟' || (!ground.some(g=>g.r===c.r) && !players.some(p=>p.eat.some(e=>e.r===c.r))));
-        if(idx>-1){
-          const card=me.hand.splice(idx,1)[0]; ground.push(card);
-          log(`${me.name} (أوتو) قطّ ${card.r}`);
-          did=true;
-        }
-      }
-      selected=null; shown=false; turn=(turn-1+PLAYERS)%PLAYERS; // سنعيده لأن nextTurn يزيد
-      nextTurn();
-    }else{
-      // النهاية: قطّ أي كرت
-      const me=players[turn];
-      if(me.hand.length){
-        const card=me.hand.pop(); ground.push(card);
-        log(`${me.name} (أوتو) قطّ ${card.r} — نهاية`);
-      }
-      selected=null; shown=false; turn=(turn-1+PLAYERS)%PLAYERS;
-      nextTurn();
-    }
-  }
-  /* ================================= */
+  id("next").onclick = () => {
+    shown = false; selected = null;
+    turn = (turn+1)%PLAYERS;
+    log(`الدور → لاعب ${NAMES[turn]}`);
+    render();
+  };
 
-  function finalScore(){
-    let g=0,o=0; for(const p of players){ const pts=p.eat.filter(c=>SCORING.has(c.r)).length; if(p.team==='green') g+=pts; else o+=pts; }
-    const text=`الأخضر: ${g} — البرتقالي: ${o} — `+(g===o?'تعادل':(g>o?'فاز فريق الأخضر':'فاز فريق البرتقالي'));
-    el('winnerText').textContent=text; el('winner').style.display='flex'; alert(text);
-  }
-
-  // ربط الأزرار
-  el('btnDeal').addEventListener('click', deal);
-  el('btnShow').addEventListener('click', showMyHand);
-  el('btnBuy').addEventListener('click', buy);
-  el('btnPass').addEventListener('click', passWithDiscard);
-  el('btnNext').addEventListener('click', ()=>{ selected=null; shown=false; nextTurn(); });
-  el('btnScore').addEventListener('click', ()=>{ if(phase!=='end' || !allHandsEmpty()) alert('الحساب النهائي بعد انتهاء السحبة ثم تفريغ كل الأيادي.'); else finalScore(); });
-
-  // بداية
-  enable({deal:false,show:false,buy:false,pass:false,next:false});
+  // رسم أولي فاضي
+  players = Array.from({length:PLAYERS}, ()=>({hand:[]}));
+  render();
 })();
 </script>
 </body>
