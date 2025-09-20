@@ -16,8 +16,8 @@
   .wrap{max-width:1100px;margin:12px auto;padding:0 10px 28px}
   .layout{display:grid;grid-template-columns:1fr 360px;gap:12px}
   .arena{position:relative;min-height:560px;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:radial-gradient(circle at 50% 50%,#0f1737 0%,#0b1020 65%);box-shadow:0 10px 36px rgba(0,0,0,.35)}
-  .table{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:360px;height:360px;border-radius:999px;background:#0f203b;border:2px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px;gap:6px}
-  .seat{position:absolute;width:150px;text-align:center}
+  .table{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:360px;height:360px;border-radius:999px;background:#0f203b;border:2px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px;gap:6px;z-index:1}
+  .seat{position:absolute;width:150px;text-align:center;z-index:2}
   .name{font-size:13px;opacity:.95;margin-bottom:6px}
   .name.green{color:var(--green)} .name.orange{color:var(--orange)}
   .dealerTag{display:inline-block;margin-top:4px;background:var(--dealer);padding:2px 6px;border-radius:999px;font-size:11px}
@@ -35,6 +35,7 @@
   .scoreBox{display:flex;gap:8px;flex-wrap:wrap}
   .team{background:rgba(255,255,255,.06);padding:6px 8px;border-radius:10px}
   .pill{display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:12px}
+  .timer{display:inline-block;min-width:28px;text-align:center;background:#1f2937;border-radius:999px;padding:2px 8px;font-weight:700}
 </style>
 </head>
 <body>
@@ -58,10 +59,11 @@
         <div class="row">
           <span class="badge">الأرض (1..K)</span>
           <span class="pill">السحبة المتبقية: <b id="stockLeft">—</b></span>
+          <span class="pill">المرحلة: <b id="phaseLabel">—</b></span>
+          <span class="pill">الوقت: <b class="timer" id="timer">—</b></span>
         </div>
         <div id="ground" class="pile"></div>
       </div>
-      <!-- المقاعد تُرسم ديناميكياً -->
     </div>
 
     <div class="panel side">
@@ -79,279 +81,253 @@
 
 <script>
 (()=>{
-  // إعدادات رزم اللعبة
-  const PLAYERS = 6;
-  const TEAM = i => i%2===0 ? 'green' : 'orange';
-  const NAMES = ['A','B','C','D','E','F'];
-  const RANKS = ['1','2','3','4','5','6','7','8','9','10','J','Q','K'];
-  const COPIES_PER_RANK = 48;   // عدد كل كرت
-  const JOKERS_COUNT     = 35;  // عدد الجواكر
-  const SCORING = new Set(['10','J','Q','K','1']);
+  const PLAYERS=6, TEAM=i=>i%2===0?'green':'orange', NAMES=['A','B','C','D','E','F'];
+  const RANKS=['1','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  const COPIES_PER_RANK=48, JOKERS_COUNT=35;
+  const SCORING=new Set(['10','J','Q','K','1']);
 
-  let deck=[], stock=[], players=[], ground=[], dealer=0, turn=0, shown=false;
-  let selected=null; // {pIdx,cIdx}
+  let deck=[], stock=[], players=[], ground=[], dealer=0, turn=0;
+  let shown=false, selected=null, phase='normal';
+  let endgameUnlocked=false;   // يُفعَّل عند أول لاعب معه 3 كروت يُقابل بالدور بعد نفاد السحبة
+  let timerId=null, timeLeft=10;
 
-  const el = id => document.getElementById(id);
-  const log = m => { const d=document.createElement('div'); d.textContent=m; el('log').prepend(d); };
+  const el=id=>document.getElementById(id);
+  const log=m=>{const d=document.createElement('div'); d.textContent=m; el('log').prepend(d);};
 
   function buildBigDeck(){
     const d=[];
-    for(const r of RANKS){
-      for(let i=0;i<COPIES_PER_RANK;i++){
-        d.push({r,id:`${r}-${i}-${Math.random().toString(36).slice(2,7)}`});
-      }
-    }
-    for(let j=0;j<JOKERS_COUNT;j++){
-      d.push({r:'🃟',id:`J-${j}-${Math.random().toString(36).slice(2,7)}`});
-    }
-    // خلط
+    for(const r of RANKS){ for(let i=0;i<COPIES_PER_RANK;i++){ d.push({r,id:`${r}-${i}-${Math.random().toString(36).slice(2,7)}`}); } }
+    for(let j=0;j<JOKERS_COUNT;j++){ d.push({r:'🃟',id:`J-${j}-${Math.random().toString(36).slice(2,7)}`}); }
     for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
     return d;
   }
-
   function pickGroundAllRanks(){
-    // ورقة واحدة لكل رقم 1..K كبداية للأرض
-    const g=[]; const seen=new Set();
+    const g=[], seen=new Set();
     for(const c of deck){
-      if(c.r!=='🃟' && !seen.has(c.r)){
-        g.push(c); seen.add(c.r);
-      }
+      if(c.r!=='🃟' && !seen.has(c.r)){ g.push(c); seen.add(c.r); }
       if(seen.size===RANKS.length) break;
     }
-    deck = deck.filter(c => !g.includes(c));
+    deck=deck.filter(c=>!g.includes(c));
     return g;
   }
-
-  function topUpToSix(pIdx){
-    while(players[pIdx].hand.length < 6 && stock.length>0){
-      players[pIdx].hand.push(stock.pop());
-    }
-  }
+  function topUpToSix(pIdx){ while(players[pIdx].hand.length<6 && stock.length) players[pIdx].hand.push(stock.pop()); }
 
   function deal(){
-    // إعادة التهيئة
-    deck = buildBigDeck();
-    players = Array.from({length:PLAYERS}, (_,i)=>({idx:i,name:`لاعب ${NAMES[i]}`,team:TEAM(i),hand:[],eat:[]}));
-    dealer = Math.floor(Math.random()*PLAYERS);
-
-    // الأرض تبدأ بجميع الأرقام
-    ground = pickGroundAllRanks();
-
-    // الباقي = ستوك
-    stock = deck; deck = [];
-    // توزيع أولي: 5 لكل لاعب + لاعب عشوائي يأخذ السادسة
-    const starter = Math.floor(Math.random()*PLAYERS);
+    deck=buildBigDeck();
+    players=Array.from({length:PLAYERS},(_,i)=>({idx:i,name:`لاعب ${NAMES[i]}`,team:TEAM(i),hand:[],eat:[]}));
+    dealer=Math.floor(Math.random()*PLAYERS);
+    ground=pickGroundAllRanks();
+    stock=deck; deck=[];
+    const starter=Math.floor(Math.random()*PLAYERS);
     for(let r=0;r<5;r++){ for(let p=0;p<PLAYERS;p++){ if(stock.length) players[p].hand.push(stock.pop()); } }
     if(stock.length) players[starter].hand.push(stock.pop());
-
-    turn = starter;
-    shown = false; selected=null;
-
-    // واجهة
-    el('winner').style.display='none';
-    el('winnerText').textContent='';
-    renderAll();
-    fillRankSelect();
-    enable({deal:false, show:true, buy:false, pass:false, next:false});
+    turn=starter; shown=false; selected=null; phase='normal'; endgameUnlocked=false;
+    el('winner').style.display='none'; el('winnerText').textContent='';
+    renderAll(); fillRankSelect();
+    enable({deal:false,show:true,buy:false,pass:false,next:false});
     log(`الديلر: ${players[dealer].name} — البادئ: ${players[starter].name}`);
+    startTimer();
   }
 
   function enable({deal,show,buy,pass,next}){
-    el('btnDeal').disabled = !deal;
-    el('btnShow').disabled = !show;
-    el('btnBuy').disabled  = !buy;
-    el('btnPass').disabled = !pass;
-    el('btnNext').disabled = !next;
-    el('rankSelect').disabled = !(buy||pass);
+    el('btnDeal').disabled=!deal; el('btnShow').disabled=!show; el('btnBuy').disabled=!buy;
+    el('btnPass').disabled=!pass; el('btnNext').disabled=!next;
+    el('rankSelect').disabled=!(buy||pass);
   }
 
   function seatPos(i){
-    const arena = el('arena'), r = Math.min(arena.clientWidth, arena.clientHeight)/2 - 80;
-    const cx = arena.clientWidth/2, cy = arena.clientHeight/2;
-    const ang = (Math.PI*2)*(i/PLAYERS) - Math.PI/2;
-    return {left: cx + r*Math.cos(ang)-75, top: cy + r*Math.sin(ang)-70};
+    const a=el('arena'), rect=a.getBoundingClientRect();
+    const r=Math.min(rect.width,rect.height)/2-90;
+    const cx=rect.width/2, cy=rect.height/2;
+    const ang=(Math.PI*2)*(i/PLAYERS)-Math.PI/2;
+    return {left: cx+r*Math.cos(ang)-75, top: cy+r*Math.sin(ang)-70};
   }
 
-  function cardEl(c, faceUp, onClick){
-    const d=document.createElement('div');
-    d.className='card ' + (faceUp?'':'back');
-    d.textContent = faceUp ? (c.r==='1'?'A':c.r) : '';
-    if(onClick) d.addEventListener('click', onClick);
-    return d;
+  function cardEl(c,faceUp,onClick){
+    const d=document.createElement('div'); d.className='card '+(faceUp?'':'back');
+    d.textContent=faceUp?(c.r==='1'?'A':c.r):''; if(onClick) d.addEventListener('click',onClick); return d;
   }
 
   function renderAll(){
-    // الأرض
-    el('ground').innerHTML = '';
-    ground.forEach(c=> el('ground').appendChild(cardEl(c,true)));
-    // عدّاد السحبة
-    el('stockLeft').textContent = stock.length;
-
-    // المقاعد
-    const arena = el('arena');
-    Array.from(arena.querySelectorAll('.seat')).forEach(e=>e.remove());
+    el('ground').innerHTML=''; ground.forEach(c=>el('ground').appendChild(cardEl(c,true)));
+    el('stockLeft').textContent=stock.length; el('phaseLabel').textContent=(phase==='normal'?'عادي':'النهاية');
+    const arena=el('arena'); Array.from(arena.querySelectorAll('.seat')).forEach(e=>e.remove());
     for(let i=0;i<PLAYERS;i++){
-      const seat=document.createElement('div'); seat.className='seat';
-      const {left,top}=seatPos(i); seat.style.left=left+'px'; seat.style.top=top+'px';
-
+      const seat=document.createElement('div'); seat.className='seat'; const p=seatPos(i); seat.style.left=p.left+'px'; seat.style.top=p.top+'px';
       const nm=document.createElement('div'); nm.className='name '+players[i].team;
-      nm.textContent = players[i].name + (i===turn?' • دوره':'');
-      if(i===dealer){ const d=document.createElement('div'); d.className='dealerTag'; d.textContent='DEALER'; seat.appendChild(d); }
-
-      const hand=document.createElement('div'); hand.className='hand';
-      const face = (i===turn && shown);
-      players[i].hand.forEach((c,idx)=>{
-        const elc = cardEl(c, face, ()=> selectCard(i,idx));
-        if(selected && selected.pIdx===i && selected.cIdx===idx) elc.classList.add('sel');
-        hand.appendChild(elc);
-      });
-
-      const eat=document.createElement('div'); eat.className='eat';
-      players[i].eat.forEach(c=> eat.appendChild(cardEl(c,true)));
-
-      seat.appendChild(nm); seat.appendChild(hand); seat.appendChild(eat);
-      arena.appendChild(seat);
+      nm.textContent=players[i].name+(i===turn?' • دوره':''); if(i===dealer){const d=document.createElement('div'); d.className='dealerTag'; d.textContent='DEALER'; seat.appendChild(d);}
+      const hand=document.createElement('div'); hand.className='hand'; const face=(i===turn&&shown);
+      players[i].hand.forEach((c,idx)=>{ const elc=cardEl(c,face,()=>selectCard(i,idx)); if(selected&&selected.pIdx===i&&selected.cIdx===idx) elc.classList.add('sel'); hand.appendChild(elc); });
+      const eat=document.createElement('div'); eat.className='eat'; players[i].eat.forEach(c=>eat.appendChild(cardEl(c,true)));
+      seat.appendChild(nm); seat.appendChild(hand); seat.appendChild(eat); arena.appendChild(seat);
     }
-
-    // نقاط الفرق الحية (استرشاد فقط؛ الحسم النهائي بعد نفاد السحبة)
-    let g=0,o=0;
-    for(const p of players){
-      const pts = p.eat.filter(x=> SCORING.has(x.r)).length;
-      if(p.team==='green') g+=pts; else o+=pts;
-    }
-    el('scoreGreen').textContent = g;
-    el('scoreOrange').textContent = o;
-    el('turnLabel').textContent = players[turn].name + (players[turn].team==='green'?' (الأخضر)':' (البرتقالي)');
+    // live scores (إرشادية فقط؛ الحسم النهائي لاحقاً)
+    let g=0,o=0; for(const p of players){ const pts=p.eat.filter(x=>SCORING.has(x.r)).length; if(p.team==='green') g+=pts; else o+=pts; }
+    el('scoreGreen').textContent=g; el('scoreOrange').textContent=o;
+    el('turnLabel').textContent=players[turn].name+(players[turn].team==='green'?' (الأخضر)':' (البرتقالي)');
   }
 
-  function selectCard(pIdx,cIdx){
-    if(pIdx!==turn || !shown) return;
-    selected = {pIdx, cIdx};
-    renderAll();
-    enable({deal:false, show:true, buy:true, pass:true, next:true});
-    fillRankSelect();
-  }
-
+  function selectCard(pIdx,cIdx){ if(pIdx!==turn||!shown) return; selected={pIdx,cIdx}; renderAll(); enable({deal:false,show:true,buy:phase==='normal',pass:true,next:true}); fillRankSelect(); }
   function fillRankSelect(){
     const s=el('rankSelect'); s.innerHTML='';
     if(!(shown && players[turn])) return;
-    const ranks = [...new Set(players[turn].hand.map(c=>c.r))];
+    const ranks=[...new Set(players[turn].hand.map(c=>c.r))];
     ranks.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=(r==='1'?'A':r); s.appendChild(o); });
   }
 
   function ensureTurnTopUp(){
-    // في بداية الدور أو بعد انتقاله: كمّل يد اللاعب الحالي إلى 6 (إن وُجد ستوك)
-    if(stock.length>0) topUpToSix(turn);
+    if(phase==='normal' && stock.length>0) {
+      while(players[turn].hand.length<6 && stock.length) players[turn].hand.push(stock.pop());
+      if(stock.length===0){ // انتهت السحبة -> دخول مرحلة النهاية
+        phase='end';
+        endgameUnlocked=false; // تتفعل عند أول لاعب 3 كروت يُقابل
+        log('انتهت السحبة — دخلنا مرحلة النهاية (كل لاعب يرمي كرت)');
+      }
+    }
     renderAll();
   }
 
   function showMyHand(){
-    shown = !shown;
-    if(!shown) selected=null;
+    shown=!shown; if(!shown) selected=null;
     ensureTurnTopUp();
-    enable({deal:false, show:true, buy:shown, pass:shown, next:shown});
+    enable({deal:false,show:true,buy:(shown&&phase==='normal'),pass:shown,next:shown});
     fillRankSelect();
   }
 
   function findInGroundOrEats(rank){
-    // ابحث عن ورقة بنفس الرقم على الأرض أو في أكل اللاعبين
-    let where = null, idx = -1, pIdx = -1;
-    idx = ground.findIndex(c=>c.r===rank);
-    if(idx>-1){ where='ground'; return {where, idx}; }
+    let idx=ground.findIndex(c=>c.r===rank);
+    if(idx>-1) return {where:'ground',idx};
     for(let i=0;i<players.length;i++){
-      const j = players[i].eat.findIndex(c=>c.r===rank);
-      if(j>-1){ where='eat'; idx=j; pIdx=i; return {where, idx, pIdx}; }
+      const j=players[i].eat.findIndex(c=>c.r===rank);
+      if(j>-1) return {where:'eat',idx:j,pIdx:i};
     }
     return null;
   }
 
   function buy(){
+    if(phase!=='normal'){ alert('الأكل مسموح في اللعب العادي فقط'); return; }
     if(!shown){ alert('إظهار يدك أول'); return; }
-    const rSel = selected ? players[turn].hand[selected.cIdx].r : el('rankSelect').value;
+    const rSel=selected ? players[turn].hand[selected.cIdx].r : el('rankSelect').value;
     if(!rSel){ alert('اختر ورقة من يدك'); return; }
-
-    // جوكر يأكل أي رقم موجود أولاً
-    let targetRank = rSel;
-    if(rSel==='🃟'){
-      let found=null;
-      for(const rk of RANKS){
-        const f = findInGroundOrEats(rk);
-        if(f){ found={rk,f}; break; }
-      }
+    let targetRank=rSel;
+    if(rSel==='🃟'){ // جوكر يأكل أول رقم متاح
+      let found=null; for(const rk of RANKS){ const f=findInGroundOrEats(rk); if(f){found={rk,f}; break;} }
       if(!found){ alert('لا يوجد أي هدف للأكل حالياً'); return; }
-      targetRank = found.rk;
+      targetRank=found.rk;
     }
-
-    const spot = findInGroundOrEats(targetRank);
+    const spot=findInGroundOrEats(targetRank);
     if(!spot){ alert('ما فيه نفس الرقم لا في الأرض ولا في أكل اللاعبين'); return; }
-
-    // أخرج الورقة من اليد
-    let handIdx = players[turn].hand.findIndex(c=> c.r===rSel || (rSel==='🃟' && c.r==='🃟'));
-    if(handIdx===-1){ alert('هذه الورقة ليست في يدك'); return; }
-    const myCard = players[turn].hand.splice(handIdx,1)[0];
-
-    // خذ الهدف
-    let taken=null;
-    if(spot.where==='ground'){ taken = ground.splice(spot.idx,1)[0]; }
-    else{ taken = players[spot.pIdx].eat.splice(spot.idx,1)[0]; }
-
-    // ضفهم لأكلي
-    players[turn].eat.push(myCard, taken);
+    const hIdx=players[turn].hand.findIndex(c=>c.r===rSel);
+    if(hIdx===-1){ alert('هذه الورقة ليست في يدك'); return; }
+    const my=players[turn].hand.splice(hIdx,1)[0];
+    const taken = (spot.where==='ground') ? ground.splice(spot.idx,1)[0] : players[spot.pIdx].eat.splice(spot.idx,1)[0];
+    players[turn].eat.push(my,taken);
     log(`${players[turn].name} أكل ${targetRank}${rSel==='🃟'?' (جوكر)':''}`);
-
-    // نهاية الدور
-    selected=null; shown=false;
-    nextTurn();
-  }
-
-  function rankExistsAnywhere(rank){
-    if(rank==='🃟') return false; // الجوكر لا يمنع القطّ
-    if(ground.some(c=>c.r===rank)) return true;
-    for(const p of players){ if(p.eat.some(c=>c.r===rank)) return true; }
-    return false;
+    selected=null; shown=false; nextTurn();
   }
 
   function passWithDiscard(){
     if(!shown){ alert('إظهار يدك أول'); return; }
-    const rSel = selected ? players[turn].hand[selected.cIdx].r : el('rankSelect').value;
-    if(!rSel){ alert('اختر كرت للقطّ'); return; }
-    if(rankExistsAnywhere(rSel)){ alert('لا يسمح بالقطّ إذا كان نفس الرقم موجود بالأرض أو في أكل اللاعبين'); return; }
-    // قطّ إلى الأرض
-    const idx = players[turn].hand.findIndex(c=>c.r===rSel);
-    const card = players[turn].hand.splice(idx,1)[0];
+    const rSel=selected ? players[turn].hand[selected.cIdx].r : el('rankSelect').value;
+    if(!rSel){ alert('اختر كرت'); return; }
+    if(phase==='normal'){
+      // قبل النهاية: يمنع القطّ إذا نفس الرقم موجود بالأرض/الأكل
+      if(rSel!=='🃟' && (ground.some(c=>c.r===rSel) || players.some(p=>p.eat.some(c=>c.r===rSel)))){
+        alert('لا يسمح بالقطّ إذا كان نفس الرقم موجود بالأرض أو في أكل اللاعبين');
+        return;
+      }
+    }
+    // في النهاية: أي كرت مسموح
+    const i=players[turn].hand.findIndex(c=>c.r===rSel);
+    const card=players[turn].hand.splice(i,1)[0];
     ground.push(card);
-    log(`${players[turn].name} مرّر وقَطَّ ${rSel} إلى الأرض`);
-    selected=null; shown=false;
-    nextTurn();
+    log(`${players[turn].name} قطّ ${rSel}${phase==='end'?' (مرحلة النهاية)':''}`);
+    selected=null; shown=false; nextTurn();
   }
+
+  function allHandsEmpty(){ return players.every(p=>p.hand.length===0); }
 
   function nextTurn(){
-    // انتقال للدور التالي + تكميل يده إلى 6 إن وُجد ستوك
-    turn = (turn+1)%PLAYERS;
+    // انتقال الدور
+    turn=(turn+1)%PLAYERS;
+
+    // قواعد مرحلة النهاية:
+    if(phase==='end'){
+      // تفعيل قاعدة "أول لاعب 3 كروت يبدأ"
+      if(!endgameUnlocked){
+        if(players[turn].hand.length===3){ endgameUnlocked=true; }
+        else { // تخطي حتى نصل لأول 3
+          renderAll(); startTimer(); return nextTurn();
+        }
+      }else{
+        // بعد التفعيل: يلعب الجميع طبيعي (حتى أصحاب 3)
+      }
+      // إذا الكل خلص → نحسب
+      if(allHandsEmpty()){ finalScore(); enable({deal:true,show:false,buy:false,pass:false,next:false}); stopTimer(); return; }
+    }
+
     ensureTurnTopUp();
-    enable({deal:false, show:true, buy:false, pass:false, next:false});
+    enable({deal:false,show:true,buy:false,pass:false,next:false});
+    startTimer();
   }
+
+  /* ======= المؤقت (10 ثواني) ======= */
+  function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } el('timer').textContent='—'; }
+  function startTimer(){
+    stopTimer();
+    timeLeft=10; el('timer').textContent=timeLeft;
+    timerId=setInterval(()=>{
+      timeLeft--; el('timer').textContent=timeLeft;
+      if(timeLeft<=0){ stopTimer(); autoPlay(); }
+    },1000);
+  }
+  function autoPlay(){
+    // لو ما لعب خلال 10 ثواني:
+    if(phase==='normal'){
+      // نحاول أكل تلقائي (لو ممكن)، وإلا قطّ قانوني، وإلا تمرير
+      const me=players[turn];
+      // محاولة أكل
+      let did=false;
+      for(let i=0;i<me.hand.length;i++){
+        const r=me.hand[i].r==='🃟' ? (RANKS.find(rk=>findInGroundOrEats(rk))||null) : me.hand[i].r;
+        if(!r) continue;
+        const spot = findInGroundOrEats(r);
+        if(spot){
+          const my=me.hand.splice(i,1)[0];
+          const taken=(spot.where==='ground')?ground.splice(spot.idx,1)[0]:players[spot.pIdx].eat.splice(spot.idx,1)[0];
+          me.eat.push(my,taken);
+          log(`${me.name} (أوتو) أكل ${r}`);
+          did=true; break;
+        }
+      }
+      if(!did){
+        // قطّ قانوني
+        const idx=me.hand.findIndex(c=> c.r==='🃟' || (!ground.some(g=>g.r===c.r) && !players.some(p=>p.eat.some(e=>e.r===c.r))));
+        if(idx>-1){
+          const card=me.hand.splice(idx,1)[0]; ground.push(card);
+          log(`${me.name} (أوتو) قطّ ${card.r}`);
+          did=true;
+        }
+      }
+      selected=null; shown=false; turn=(turn-1+PLAYERS)%PLAYERS; // سنعيده لأن nextTurn يزيد
+      nextTurn();
+    }else{
+      // النهاية: قطّ أي كرت
+      const me=players[turn];
+      if(me.hand.length){
+        const card=me.hand.pop(); ground.push(card);
+        log(`${me.name} (أوتو) قطّ ${card.r} — نهاية`);
+      }
+      selected=null; shown=false; turn=(turn-1+PLAYERS)%PLAYERS;
+      nextTurn();
+    }
+  }
+  /* ================================= */
 
   function finalScore(){
-    // حساب نهائي بعد نفاد السحبة فقط
-    let teamG=0, teamO=0;
-    for(const p of players){
-      const pts = p.eat.filter(c=> SCORING.has(c.r)).length;
-      if(p.team==='green') teamG += pts; else teamO += pts;
-    }
-    let text = `الأخضر: ${teamG} — البرتقالي: ${teamO} — `;
-    text += (teamG===teamO) ? 'تعادل' : (teamG>teamO ? 'فاز فريق الأخضر' : 'فاز فريق البرتقالي');
-    el('winnerText').textContent = text;
-    el('winner').style.display = 'flex';
-    alert(text);
-  }
-
-  function score(){
-    if(stock.length>0){
-      alert(`ما نقدر نحسب الآن — باقي في السحبة: ${stock.length} بطاقة. اللعب يستمر لين تخلص السحبة.`);
-      return;
-    }
-    finalScore();
+    let g=0,o=0; for(const p of players){ const pts=p.eat.filter(c=>SCORING.has(c.r)).length; if(p.team==='green') g+=pts; else o+=pts; }
+    const text=`الأخضر: ${g} — البرتقالي: ${o} — `+(g===o?'تعادل':(g>o?'فاز فريق الأخضر':'فاز فريق البرتقالي'));
+    el('winnerText').textContent=text; el('winner').style.display='flex'; alert(text);
   }
 
   // ربط الأزرار
@@ -359,11 +335,11 @@
   el('btnShow').addEventListener('click', showMyHand);
   el('btnBuy').addEventListener('click', buy);
   el('btnPass').addEventListener('click', passWithDiscard);
-  el('btnNext').addEventListener('click', nextTurn);
-  el('btnScore').addEventListener('click', score);
+  el('btnNext').addEventListener('click', ()=>{ selected=null; shown=false; nextTurn(); });
+  el('btnScore').addEventListener('click', ()=>{ if(phase!=='end' || !allHandsEmpty()) alert('الحساب النهائي بعد انتهاء السحبة ثم تفريغ كل الأيادي.'); else finalScore(); });
 
   // بداية
-  enable({deal:false, show:false, buy:false, pass:false, next:false});
+  enable({deal:false,show:false,buy:false,pass:false,next:false});
 })();
 </script>
 </body>
